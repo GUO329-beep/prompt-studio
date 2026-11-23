@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>需求 → 精确 AI 指令</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-line:#c7d2fe;
+    --teal:#0e9384; --teal-soft:#e7f7f5; --amber:#b45309; --amber-soft:#fff5e6;
+    --red:#b91c1c; --red-soft:#fef2f2; --shadow:0 4px 20px rgba(31,41,55,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:1320px;margin:0 auto;padding:26px 22px 60px}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+  h1{font-size:25px;margin:0 0 6px;letter-spacing:-.4px}
+  header.top p{margin:0;color:var(--muted);font-size:13px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:7px 13px;font-size:12px;color:var(--muted);box-shadow:var(--shadow)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--teal)}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .card-hd{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+    justify-content:space-between;gap:12px}
+  .card-hd h2{font-size:15px;margin:0;font-weight:650}
+  .card-hd small{color:var(--muted);font-size:12px}
+  .card-bd{padding:18px 20px 20px}
+  textarea,input[type=text],select{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;
+    font:inherit;font-size:13px;color:var(--ink);background:#fff;outline:none;transition:border .15s,box-shadow .15s}
+  textarea:focus,input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+  textarea{resize:vertical;line-height:1.6}
+  #raw{min-height:100px;font-size:14px}
+  label.field{display:block;margin-bottom:14px}
+  label.field > span{display:block;font-size:12px;font-weight:600;margin-bottom:6px}
+  label.field em{font-style:normal;color:var(--muted);font-weight:400;margin-left:5px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;
+    padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s}
+  .chip:hover{border-color:var(--accent-line);color:var(--accent)}
+  .chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+  .btn-row{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 16px}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#fff;
+    color:var(--ink);padding:8px 15px;font-size:13px;transition:all .15s}
+  button:hover{border-color:var(--accent-line);color:var(--accent)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  button.primary:hover{background:#4338ca;color:#fff}
+  button.wide{flex:1;padding:11px 16px;font-size:14px}
+  button.ghost{border:none;background:transparent;color:var(--muted);font-size:12px;padding:4px 7px}
+  button.ghost:hover{background:#f3f4f6}
+  .sec-title{font-size:12px;font-weight:700;color:var(--accent);margin:16px 0 9px;
+    display:flex;align-items:center;gap:7px}
+  .sec-title::before{content:"";width:3px;height:13px;background:var(--accent);border-radius:2px}
+  .spec{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .spec .full{grid-column:1/-1}
+  .spec label span{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+  .spec label em{font-style:normal;color:var(--muted);font-weight:400}
+  .vague{background:var(--amber-soft);border:1px solid #fde3b8;border-radius:10px;padding:10px 12px;font-size:12px}
+  .vague b{color:var(--amber)}
+  .vague ul{margin:7px 0 0;padding-left:18px;color:#7c4a03}
+  .vague li{margin:3px 0}
+  .clean{background:var(--teal-soft);border:1px solid #bfe9e2;border-radius:10px;padding:9px 12px;
+    font-size:12px;color:var(--teal)}
+  details summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:600;outline:none}
+  details[open] summary{margin-bottom:10px}
+  .health{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;margin-bottom:14px}
+  .h-item{font-size:12px}
+  .h-top{display:flex;justify-content:space-between;color:var(--muted);margin-bottom:4px}
+  .h-top b{color:var(--ink);font-weight:600}
+  .h-bar{height:6px;background:#eef0f5;border-radius:99px;overflow:hidden}
+  .h-bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+  .tabs{display:flex;gap:4px;background:#f3f4f6;padding:3px;border-radius:9px}
+  .tabs button{border:none;background:transparent;padding:5px 11px;font-size:12px;color:var(--muted);border-radius:7px}
+  .tabs button.on{background:#fff;color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.06);font-weight:600}
+  #out{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.8;background:#fafbff;
+    border:1px solid #edf0f7;border-radius:12px;padding:15px 17px;min-height:470px;max-height:660px;
+    overflow:auto;font-family:"SFMono-Regular",Consolas,"Microsoft YaHei",monospace}
+  .out-empty{color:var(--muted);text-align:center;padding-top:140px;font-size:13px}
+  .summary{font-size:12px;color:var(--muted);margin:10px 0 0;min-height:18px}
+  .notice{font-size:12px;color:var(--teal);min-height:18px;margin-top:8px}
+  .hist{display:flex;flex-direction:column;gap:6px;max-height:170px;overflow:auto;margin-top:10px}
+  .hist-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:7px 10px;
+    border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;font-size:12px}
+  .hist-item:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+  .hist-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hist-item time{color:var(--muted);font-size:11px;flex-shrink:0}
+  .checklist{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .checklist label{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted);margin:6px 0;cursor:pointer;line-height:1.5}
+  .checklist input{accent-color:var(--accent);margin-top:3px;flex-shrink:0}
+  @media(max-width:940px){.grid,.spec,.health{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>需求 → 精确 AI 指令</h1>
+      <p>把一句话需求补全成 AI 能直接执行的指令：明确角色、输入、输出、边界和验收标准。</p>
+    </div>
+    <div class="badges">
+      <span class="badge"><i class="dot"></i>纯本地规则计算</span>
+      <span class="badge">不调用任何 API · 零费用</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- 左：需求与规格 -->
+    <section class="card">
+      <div class="card-hd"><h2>① 写下你的需求</h2><button class="ghost" id="demo">填入示例</button></div>
+      <div class="card-bd">
+        <label class="field">
+          <span>原始需求 <em>怎么写都行，不用组织语言</em></span>
+          <textarea id="raw" placeholder="例如：帮我做个能统计用电量的东西，要能在手机上看"></textarea>
+        </label>
+        <div class="chips" id="types"></div>
+        <div class="btn-row"><button class="primary wide" id="gen">一键生成精确指令</button></div>
+
+        <div class="sec-title">自动解析结果（可直接修改，改完重新生成）</div>
+        <div class="spec">
+          <label><span>动作</span><input type="text" id="f_action" placeholder="实现 / 排查 / 讲解"></label>
+          <label><span>对象</span><input type="text" id="f_object" placeholder="要做成什么"></label>
+          <label class="full"><span>一句话目标</span><input type="text" id="f_goal" placeholder="一句话说清唯一目标"></label>
+          <label class="full"><span>技术栈 / 环境</span><input type="text" id="f_stack" placeholder="例如：Qt6 + OpenCV 4.5.2，Windows"></label>
+          <label class="full"><span>输入 <em>（你会提供什么）</em></span><input type="text" id="f_input" placeholder="例如：每日用电读数、统计月份"></label>
+          <label class="full"><span>输出 <em>（要交付什么）</em></span><input type="text" id="f_output" placeholder="例如：月度统计表，含总量与日均"></label>
+          <label class="full"><span>读者层级 <em>（给谁看；决定术语简释与背景详略）</em></span>
+            <select id="f_audience">
+              <option value="">未指定（按专业读者处理）</option>
+              <option>同行研究者（懂基础方法，不熟悉本领域的识别策略）</option>
+              <option>本科生 / 初学者</option>
+              <option>领域专家</option>
+              <option>大众读者</option>
+            </select>
+          </label>
+          <label class="full"><span>硬性约束 <em>每行一条</em></span><textarea id="f_limits" rows="3" placeholder="必须满足的条件"></textarea></label>
+          <label class="full"><span>边界 <em>不要做的事，每行一条</em></span><textarea id="f_bounds" rows="2" placeholder="不做什么"></textarea></label>
+        </div>
+
+        <div class="sec-title">模糊表达检查</div>
+        <div id="vagueBox"><div class="clean">写点需求后，这里会指出哪些说法太模糊，并给出改法。</div></div>
+
+        <details style="margin-top:16px">
+          <summary>高级设置：角色 / 输出格式 / 补充示例 / 额外验收</summary>
+          <div style="margin-top:12px">
+            <label class="field"><span>期望角色</span><input type="text" id="f_role" placeholder="留空则按任务类型自动填充"></label>
+            <label class="field"><span>输出格式</span><select id="f_format">
+              <option value="">自动匹配</option><option>分点说明</option><option>Markdown 文档</option>
+              <option>可直接运行的代码 + 简要说明</option><option>表格对比 + 结论建议</option>
+              <option>分步讲解 + 小练习</option><option>JSON 结构化数据</option></select></label>
+            <label class="field"><span>补充示例 <em>选填</em></span><textarea id="f_example" rows="2" placeholder="粘贴一段你希望它照着来的输出样式"></textarea></label>
+            <label class="field"><span>额外验收标准 <em>每行一条</em></span><textarea id="f_extra" rows="2" placeholder="例如：给出编译命令"></textarea></label>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 右：指令与体检 -->
+    <section class="card">
+      <div class="card-hd">
+        <h2>② 精确指令</h2>
+        <div class="tabs">
+          <button class="on" data-view="cmd">AI 指令</button>
+          <button data-view="card">规格卡</button>
+        </div>
+      </div>
+      <div class="card-bd">
+        <div class="sec-title" style="margin-top:0">精确度体检</div>
+        <div class="health" id="health"></div>
+        <div id="out"><div class="out-empty">左边写下需求 → 点「一键生成精确指令」<br>结果会显示在这里，可直接复制给任意 AI</div></div>
+        <p class="summary" id="summary"></p>
+        <div class="notice" id="notice"></div>
+        <div class="btn-row" style="margin-bottom:0">
+          <button class="primary" id="copy">复制指令</button>
+          <button id="download">下载 .md</button>
+          <button id="clear">清空</button>
+        </div>
+        <div class="checklist">
+          <div class="sec-title">交付前自查（逐项核对后再复制）<span id="ckState" style="font-weight:400;color:var(--muted);margin-left:6px">0 / 6</span></div>
+          <label><input type="checkbox" data-ck="1"><span>结论前置，且给足理解结论所需的推理背景</span></label>
+          <label><input type="checkbox" data-ck="2"><span>专业术语保留，首次出现时已简释</span></label>
+          <label><input type="checkbox" data-ck="3"><span>无前向指代；成果独立完整，不依赖对话上下文或临时简称</span></label>
+          <label><input type="checkbox" data-ck="4"><span>事实、推断、处理结果已区分；数字与引用均可溯源，缺失已标注</span></label>
+          <label><input type="checkbox" data-ck="5"><span>相关关系未被改写为因果；系数与显著性未被改动</span></label>
+          <label><input type="checkbox" data-ck="6"><span>已按硬性约束、边界和验收标准逐条核对</span></label>
+        </div>
+        <details style="margin-top:16px">
+          <summary>历史记录（仅保存在本机浏览器）</summary>
+          <div class="hist" id="hist"></div>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ========== 词典与规则（全部本地，无网络请求） ========== */
+  const STACKS = ["Qt6","Qt5","OpenCV","MySQL","MariaDB","SQLite","Python","C++","C语言","JavaScript",
+    "TypeScript","React","Vue","HTML","CSS","Node.js","STM32","MPU6050","I2C","SPI","PID","WSL",
+    "Linux","Windows","Android","iOS","Docker","Git","Excel","Word","PPT","Redis","Nginx"];
+
+  const TYPES = {
+    debug:{label:"调试排错", action:"排查并修复", role:"经验丰富的故障排查工程师", format:"原因清单 + 可验证的排查步骤",
+      input:"报错原文、复现步骤、相关代码片段、环境与版本",
+      output:"按概率排序的原因清单 + 每步带预期结果的排查步骤 + 修复建议",
+      limits:["先给最可能的原因，再按概率从高到低排列","把只读诊断操作与写操作分开列出","每一步都写出预期结果，方便我验证",
+        "不提供重装系统、清空配置等不可逆命令，除非我明确要求"],
+      bounds:["不要猜测我没有提供的信息，缺什么直接问我","不要修改我未提到的代码或配置","不要给出含糊的『可能是环境问题』这类结论"],
+      accept:["原因按可能性排序并说明依据","每个排查步骤都有明确的预期结果","区分『原因』和『可选方案』"]},
+    code:{label:"写代码", action:"实现", role:"资深软件工程师", format:"可直接运行的代码 + 简要说明",
+      input:"功能需求、可用的函数或数据格式、运行环境的版本",
+      output:"完整可运行的代码 + 依赖与运行方式 + 关键行的注释",
+      limits:["给出能直接复制运行的代码，不要只写伪代码","关键行加注释，说明为什么这么写","写明依赖、运行环境和运行命令",
+        "指出至少两个常见的坑及对应的处理办法"],
+      bounds:["不要为了简洁省略必要的错误处理","不要引入我没有提到的第三方库，除非说明理由","不要改动我未提到的部分"],
+      accept:["代码可以直接复制运行","给出了运行命令和预期输出","标注出可能出错的位置"]},
+    learn:{label:"学习讲解", action:"讲解", role:"耐心、擅长打比方的技术老师", format:"分步讲解 + 小练习",
+      input:"我目前的知识水平、想达到的目标、卡住的具体位置",
+      output:"从基础概念开始的分步讲解 + 每步可自行验证的方法 + 一个小练习",
+      limits:["一次只讲一个小步骤，等我确认再继续","用图示、表格或类比帮助理解，不要堆术语","每步给出我可以自己执行的验证方法",
+        "先讲是什么，再讲为什么，最后讲怎么用"],
+      bounds:["不要一次性把全部内容倒出来","不要假设我已经掌握未说明的前置知识","不要只给结论不解释推理过程"],
+      accept:["每一步都能自己动手验证","遇到术语都给出通俗解释"]},
+    doc:{label:"文档写作", action:"撰写", role:"专业技术文档撰写人", format:"Markdown 文档",
+      input:"文档用途、目标读者、必须包含的信息、可用的素材",
+      output:"结构完整的 Markdown 文档，含清晰标题层级和重点标注",
+      limits:["先给大纲再展开正文","结构清晰、层级分明，重点内容加粗","避免口语化和空泛表述","不确定的数据明确标注为待确认"],
+      bounds:["不要编造数字、案例或引用","不要使用我没有提供的专业术语堆砌"],
+      accept:["有清晰的标题层级","所有事实性内容都可追溯或已标注待确认"]},
+    analyze:{label:"分析对比", action:"分析", role:"资深数据分析顾问", format:"表格对比 + 结论建议",
+      input:"待分析的数据或文本、比较的维度、关注的指标",
+      output:"一句话结论 + 关键对比表格 + 可执行建议",
+      limits:["开头先给一句话结论，再展开论据","用表格呈现关键对比","标明数据来源或推理假设","区分事实和推测"],
+      bounds:["不要用模糊的『整体来说不错』代替具体数字","不要把相关性说成因果性","不要遗漏反面证据"],
+      accept:["关键数字可追溯","结论和建议能一一对应"]},
+    design:{label:"设计创作", action:"设计", role:"有审美判断力的设计师", format:"方案描述 + 结构说明",
+      input:"用途、目标用户、风格偏好、必须包含的元素和限制尺寸",
+      output:"2-3 个不同方向的方案 + 推荐方案 + 配色与排版理由",
+      limits:["先给 2-3 个不同方向，再展开推荐方案","说明配色、排版和取舍的理由","给出可直接照做的具体参数"],
+      bounds:["不要只给一个笼统方案","不要照搬明显雷同的模板"],
+      accept:["每个方案都有明确区别","给出了可执行的参数"]},
+    translate:{label:"翻译润色", action:"翻译润色", role:"注重语感的双语编辑", format:"译文 + 简要修改说明",
+      input:"原文、目标语言、使用场景、需要保留的术语",
+      output:"译文全文 + 关键修改点的简要说明",
+      limits:["保持原意和语气，不要过度发挥","符合目标语言的表达习惯，避免直译腔","专业术语前后保持一致"],
+      bounds:["不要增删原文没有的信息","不要改变原文的语气强度"],
+      accept:["术语前后一致","没有原文之外的内容"]},
+    general:{label:"通用任务", action:"完成", role:"善于把复杂问题讲清楚的资深助理", format:"分点说明",
+      input:"任务所需的原始材料、已知条件和限制",
+      output:"分点清晰的结果 + 必要的说明",
+      limits:["先给结论，再给理由","信息不足时先提问，不要用假设填空","语言简洁，避免空话套话"],
+      bounds:["不要臆测未提供的信息","不要扩展到我没要求的任务"],
+      accept:["完整覆盖原始需求","输出符合指定格式"]}
+  };
+
+  const MATCHERS = [
+    {key:"debug", re:/报错|异常|崩溃|闪退|失败|排查|调试|修复|解决不了|不生效|为什么不行|失效|错误|bug/i},
+    {key:"learn", re:/教我|解释|讲解|什么意思|怎么理解|学习|入门|新手|小白|原理|为什么/},
+    {key:"code", re:/帮我做|写一个|写个|做个|做一个|开发|实现|编写|代码|函数|程序|接口|工具|生成一/},
+    {key:"analyze", re:/分析|对比|比较|统计|评估|优缺点|差异|趋势|数据/},
+    {key:"doc", re:/写一篇|写份|文档|报告|总结|文案|文章|方案书|说明/},
+    {key:"design", re:/设计|画个|画一|界面|海报|配色|风格|视觉|排版/},
+    {key:"translate", re:/翻译|润色|改写|中译英|英译中/},
+    {key:"code", re:/写|实现|开发|生成|做一个|做个|编写|代码|函数|程序|脚本|接口|工具|编译|自动/}
+  ];
+
+  const VAGUE = [
+    ["好一点","给出可衡量的标准，如『耗时 < 200ms』"],["快一点","给出具体性能指标，如『1 秒内完成』"],
+    ["简单","写明允许的功能范围和复杂度上限"],["好看","写明配色数量、布局方式和参考风格"],
+    ["高大上","给出 2-3 个参考案例或风格关键词"],["大概","改成确定的数值或明确范围"],
+    ["尽量","改成『必须』或『可选』，并标出优先级"],["适当","给出具体规则或默认值"],
+    ["一些","列出具体条目和数量"],["几个","写明确切数量"],["等等","把全部项目列出来"],
+    ["东西","换成具体对象名称"],["优化","说明优化前后的对比指标"],
+    ["完善","列出要补充的具体功能点"],["能用就行","写出最低可用标准"],
+    ["友好","写明目标用户和操作步骤数上限"],["好用","写明目标用户和操作步骤数上限"],
+    ["相关","列出需要包含的具体项"],
+    ["高效","给出时间或资源指标"],["智能","写明具体的判断规则"],["差不多","给出明确阈值"]
+  ];
+
+  const $ = id => document.getElementById(id);
+  const F = {
+    raw:$("raw"), types:$("types"), action:$("f_action"), object:$("f_object"), goal:$("f_goal"),
+    stack:$("f_stack"), input:$("f_input"), output:$("f_output"), limits:$("f_limits"),
+    bounds:$("f_bounds"), audience:$("f_audience"), role:$("f_role"), format:$("f_format"), example:$("f_example"),
+    extra:$("f_extra"), vague:$("vagueBox"), health:$("health"), out:$("out"),
+    summary:$("summary"), notice:$("notice"), hist:$("hist")
+  };
+  let curType = "general", curCmd = "", curCard = "", view = "cmd", manualType = false;
+  const autoCache = {};
+
+  /* ========== 初始化 ========== */
+  Object.keys(TYPES).forEach(key=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (key===curType ? " on" : "");
+    b.dataset.key = key; b.textContent = TYPES[key].label;
+    b.onclick = ()=>{ curType=key; manualType=true; markChips(); parse(); notify("已切换为「"+TYPES[key].label+"」模板"); };
+    F.types.appendChild(b);
+  });
+  function markChips(){ [...F.types.children].forEach(c=>c.classList.toggle("on", c.dataset.key===curType)); }
+
+  function put(id, val){
+    const e = $(id);
+    if(!e.dataset.touched || e.value === (autoCache[id]||"")){ e.value = val; autoCache[id] = val; }
+  }
+  ["f_action","f_object","f_goal","f_stack","f_input","f_output","f_limits","f_bounds","f_audience","f_role","f_format"]
+    .forEach(id=>{ $(id).addEventListener("change", ()=>{ $(id).dataset.touched="1"; });
+                   $(id).addEventListener("input", ()=>{ $(id).dataset.touched="1"; }); });
+
+  function setv(id,val){ $(id).value=val; $(id).dataset.touched=""; delete autoCache[id]; }
+
+  function splitLines(v){ return v.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
+
+  /* ========== 解析引擎 ========== */
+  function detectType(raw){
+    let best="general", score=0;
+    MATCHERS.forEach(m=>{ const n=(raw.match(new RegExp(m.re.source,"g"))||[]).length; if(n>score){score=n;best=m.key;} });
+    return best;
+  }
+  function extractStack(raw){
+    const found=[];
+    STACKS.forEach(s=>{ if(raw.toLowerCase().includes(s.toLowerCase())) found.push(s); });
+    // 去掉被更具体词包含的通配词
+    return found.filter(s=>!found.some(o=>o!==s && o.includes(s))).join(" + ");
+  }
+  function extractObject(raw){
+    let s = raw.replace(/^(帮我|请帮我|请|麻烦|我想|我要|需要|能不能|可不可以|请你)+/,"");
+    s = s.replace(/^(写一个|写个|做个|做一个|实现|开发|生成|编写|设计|排查|修复|分析|讲解|解释|翻译|画个|统计)/,"");
+    s = s.split(/[，,。！？；;\n]/)[0].trim();
+    return s.length>50 ? s.slice(0,50) : (s||"所描述的功能");
+  }
+  function parse(){
+    const raw = F.raw.value.trim();
+    if(!raw){ resetFields(); return; }
+    if(!manualType) curType = detectType(raw);
+    markChips();
+    const p = TYPES[curType];
+    const stack = extractStack(raw);
+    const obj = extractObject(raw);
+    put("f_action", p.action);
+    put("f_object", obj);
+    put("f_goal", p.action + "：" + obj);
+    put("f_stack", stack || (curType==="general" ? "未指定，执行前请向我确认" : "未指定，执行前请向我确认"));
+    put("f_input", p.input);
+    put("f_output", p.output);
+    put("f_limits", p.limits.join("\n"));
+    put("f_bounds", p.bounds.join("\n"));
+    put("f_role", p.role);
+    if(!F.audience.dataset.touched) put("f_audience", "");
+    if(!F.format.value) put("f_format", p.format);
+    showVague(raw);
+  }
+  F.raw.addEventListener("input", ()=>parse());
+
+  function resetFields(){
+    ["f_action","f_object","f_goal","f_stack","f_input","f_output","f_limits","f_bounds","f_audience","f_role","f_format"]
+      .forEach(id=>setv(id,""));
+    F.vague.innerHTML = '<div class="clean">写点需求后，这里会指出哪些说法太模糊，并给出改法。</div>';
+    F.health.innerHTML = "";
+  }
+
+  function showVague(raw){
+    const hits = VAGUE.filter(v=>raw.includes(v[0]));
+    if(!hits.length){
+      F.vague.innerHTML = '<div class="clean">没有发现明显模糊词，需求表述比较具体。</div>';
+    }else{
+      F.vague.innerHTML = '<div class="vague"><b>发现 '+hits.length+' 处模糊表达，建议改具体：</b><ul>' +
+        hits.map(v=>'<li>「'+v[0]+'」→ '+v[1]+'</li>').join("") + '</ul></div>';
+    }
+  }
+
+  /* ========== 体检 ========== */
+  function check(){
+    const num = v => Math.max(0, Math.min(100, v));
+    const role = F.role.value.trim();
+    const goal = F.goal.value.trim();
+    const vagueN = VAGUE.filter(v=>F.raw.value.includes(v[0])).length;
+    const lim = splitLines(F.limits.value), acc = splitLines(F.extra.value);
+    const measurable = lim.filter(x=>/\d|[＜＞<>=]|必须|禁止|不得|不要|先|再|不超过|至少/.test(x)).length;
+    return [
+      {n:"角色",v:num(role ? (role.length>=8?100:75) : 0), t:role?"角色已明确":"没填角色，AI 输出风格会不稳定"},
+      {n:"读者",v:num(F.audience.value?100:0), t:F.audience.value?"已指定读者层级":"未指定读者，术语简释和背景详略会不准"},
+      {n:"目标",v:num(goal ? (goal.length<=45?100:70)-vagueN*15 : 0), t:goal?"一句话目标已明确":"目标还没提炼出来"},
+      {n:"输入",v:num(F.input.value.trim()?100:0), t:F.input.value.trim()?"说清了会提供什么":"没说输入，AI 容易自己编数据"},
+      {n:"输出",v:num(F.output.value.trim()?100:0), t:F.output.value.trim()?"交付物已明确":"没说要交付什么，结果不可验收"},
+      {n:"约束",v:num(lim.length?Math.round(40+measurable/lim.length*60):0), t:lim.length?"有 "+lim.length+" 条约束":"没有硬性约束"},
+      {n:"验收",v:num(acc.length?Math.round(50+acc.length*10):60), t:acc.length?"有 "+acc.length+" 条额外验收":"已用默认验收清单"}
+    ];
+  }
+  function drawHealth(){
+    F.health.innerHTML = check().map(x=>{
+      const c = x.v>=80 ? "var(--teal)" : x.v>=50 ? "var(--amber)" : "var(--red)";
+      return '<div class="h-item" title="'+x.t+'"><div class="h-top"><span>'+x.n+'</span><b>'+x.v+'</b></div>'+
+        '<div class="h-bar"><i style="width:'+x.v+'%;background:'+c+'"></i></div></div>';
+    }).join("");
+  }
+
+  /* ========== 生成指令 ========== */
+  function build(){
+    const raw = F.raw.value.trim();
+    if(!raw) return null;
+    const clauses = raw.split(/[，,。！？；;\n]/).map(s=>s.trim()).filter(Boolean);
+    const detail = clauses.slice(1).join("，");
+    const goal = F.goal.value.trim() || extractObject(raw);
+    const role = F.role.value.trim() || TYPES[curType].role;
+    const fmt = F.format.value || TYPES[curType].format;
+    const lim = splitLines(F.limits.value), bounds = splitLines(F.bounds.value);
+    const extras = splitLines(F.extra.value);
+    const accept = [].concat(TYPES[curType].accept, extras);
+    const stack = F.stack.value.trim();
+    const inp = F.input.value.trim() || "任务所需的原始材料";
+    const outp = F.output.value.trim() || "分点清晰的结果";
+
+    const audience = F.audience.value;
+    let s = "";
+    s += "【执行指令 · 请严格按以下各条执行】\n\n";
+    s += "■ 1. 角色\n你是一名" + role + "。\n";
+    if(stack) s += "技术栈 / 环境：" + stack + "。\n";
+    s += "如果任务超出你的能力或缺少必要条件，请直接说明，不要猜测。\n\n";
+    s += "■ 2. 唯一目标\n" + goal + "\n";
+    if(detail) s += "补充细节（同样必须满足）：" + detail + "\n";
+    s += "本指令只有一个目标，不要扩展到其它功能。\n\n";
+    s += "■ 3. 输入\n- 我会提供：" + inp + "\n";
+    s += "- 如果我没有提供上述输入，先向我索取，不要用假设或编造的数据填空。\n\n";
+    s += "■ 4. 输出\n- 交付物：" + outp + "\n";
+    s += "- 组织方式：" + fmt + "\n- 语言：简体中文\n\n";
+    s += "■ 5. 读者与表达\n";
+    s += "- 读者：" + (audience || "未指定，按专业读者处理，但术语首次出现时仍要简释") + "。\n";
+    s += "- 先给结论，再解释依据；重点前置，给足理解结论所需的推理背景，不让读者读到后面才看懂。\n";
+    s += "- 沿用材料中的术语并保留必要专业细节；专业术语首次出现时简释。\n";
+    s += "- 避免前向指代（如『如下所述』『见后文』）；上下文不完整时把关键对象写全。\n";
+    s += "- 最终成果必须独立完整：不假设读者看过中间过程，不沿用只在对话中出现的临时简称或代号。\n";
+    s += "- 区分已核实事实、推断与待核实问题；缺失信息标注『未查到』，不要把缺失当成零。\n";
+    s += "- 不得编造数字、引用、文献或已完成的操作；数字、单位、系数和显著性水平保持原样，不改写。\n";
+    s += "- 不得把相关关系改写成因果关系；因果表述须有识别依据，否则明确说明只是相关。\n\n";
+    s += "■ 6. 硬性约束（必须满足）\n";
+    lim.forEach((x,i)=>{ s += (i+1)+". "+x+"\n"; });
+    if(!lim.length) s += "1. 严格按原始需求执行，不自行扩展。\n";
+    s += "\n■ 7. 边界（不要做的事）\n";
+    bounds.forEach(x=>{ s += "- "+x+"\n"; });
+    if(!bounds.length) s += "- 不要臆测未提供的信息。\n";
+    s += "\n■ 8. 执行流程\n";
+    s += "1. 先用 3 句话复述你对任务的理解，并列出存在的歧义点；\n";
+    s += "2. 若有歧义，先向我提问，等我确认后再执行；\n";
+    s += "3. 严格按第 3、4、5、6、7 节执行，不要自行添加功能；\n";
+    s += "4. 交付前逐项核对第 9 节验收标准，并报告每项是否通过；\n";
+    s += "5. 排版、顺序等低风险细节可自行决定并简述理由后继续；范围变化、实际受阻、需我拍板或不可逆操作才停下确认。\n\n";
+    s += "■ 9. 验收标准（交付前逐条自检）\n";
+    accept.forEach(x=>{ s += "- [ ] "+x+"\n"; });
+    s += "- [ ] 完整覆盖第 2 节的唯一目标，没有遗漏也没有多余功能\n";
+    s += "- [ ] 结论前置；术语首次出现有简释；无前向指代\n";
+    s += "- [ ] 成果独立完整，不依赖对话上下文，事实/推断/待核实已区分\n";
+    s += "- [ ] 数字、系数、显著性未被改动；相关关系未被写成因果\n";
+    if(F.example.value.trim()) s += "\n■ 10. 参考示例（照此风格与结构）\n"+F.example.value.trim()+"\n";
+    s += "\n────────────────────\n";
+    s += "原始需求（仅供对照，以上方指令为准）：\n" + raw + "\n";
+    return s;
+  }
+
+  function buildCard(){
+    const raw = F.raw.value.trim();
+    const vague = VAGUE.filter(v=>raw.includes(v[0])).map(v=>v[0]).join("、") || "无";
+    return [
+      "【任务规格卡】",
+      "任务类型：" + TYPES[curType].label,
+      "动作：" + F.action.value.trim(),
+      "对象：" + F.object.value.trim(),
+      "目标：" + F.goal.value.trim(),
+      "补充细节：" + F.raw.value.trim().split(/[，,。！？；;\n]/).map(s=>s.trim()).filter(Boolean).slice(1).join("，"),
+      "角色：" + F.role.value.trim(),
+      "读者：" + F.audience.value,
+      "技术栈：" + F.stack.value.trim(),
+      "输入：" + F.input.value.trim(),
+      "输出：" + F.output.value.trim(),
+      "格式：" + F.format.value,
+      "约束：| " + splitLines(F.limits.value).join(" | "),
+      "边界：| " + splitLines(F.bounds.value).join(" | "),
+      "验收：| " + [].concat(TYPES[curType].accept, splitLines(F.extra.value)).join(" | "),
+      "模糊词：" + vague,
+      "体检总分：" + Math.round(check().reduce((a,b)=>a+b.v,0)/check().length)
+    ].join("\n");
+  }
+
+  function render(){
+    parse();
+    curCmd = build();
+    if(!curCmd){ F.out.innerHTML='<div class="out-empty">先写下需求，再点「一键生成精确指令」</div>'; return; }
+    curCard = buildCard();
+    F.out.textContent = view==="cmd" ? curCmd : curCard;
+    drawHealth();
+    const hs = check();
+    const total = Math.round(hs.reduce((a,b)=>a+b.v,0)/hs.length);
+    const weak = hs.filter(x=>x.v<60).map(x=>x.n);
+    F.summary.textContent = "精确度 "+total+" / 100" + (weak.length? "；待改进："+weak.join("、") : "；各项均已明确");
+    saveHist();
+  }
+  $("gen").onclick = ()=>{ render(); notify(curCmd?"已生成，复制后可直接粘贴给任意 AI":"请先写下需求"); };
+
+  function notify(m){ F.notice.textContent=m; setTimeout(()=>{F.notice.textContent="";},2200); }
+
+  document.querySelectorAll(".tabs button").forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on"); view=b.dataset.view;
+      if(curCmd) F.out.textContent = view==="cmd"?curCmd:curCard;
+    };
+  });
+
+  $("demo").onclick=()=>{
+    ["f_action","f_object","f_goal","f_stack","f_input","f_output","f_limits","f_bounds","f_audience","f_role","f_format","f_example","f_extra"]
+      .forEach(id=>setv(id,""));
+    F.raw.value="帮我做个能统计家里用电量的东西，最好手机上也能看，要好用一点";
+    manualType=false; parse(); render(); notify("已填入示例");
+  };
+  $("clear").onclick=()=>{
+    F.raw.value=""; ["f_example","f_extra"].forEach(id=>setv(id,""));
+    curType="general"; manualType=false; markChips(); resetFields();
+    F.out.innerHTML='<div class="out-empty">先写下需求，再点「一键生成精确指令」</div>';
+    F.summary.textContent=""; curCmd="";
+    cks.forEach(c=>{c.checked=false;}); drawCk();
+    notify("已清空");
+  };
+  $("copy").onclick=async()=>{
+    if(!curCmd){notify("请先生成指令");return;}
+    try{ await navigator.clipboard.writeText(curCmd); notify("指令已复制"); }
+    catch(e){ const t=document.createElement("textarea");t.value=curCmd;document.body.appendChild(t);
+      t.select();document.execCommand("copy");t.remove();notify("指令已复制"); }
+  };
+  $("download").onclick=()=>{
+    if(!curCmd){notify("请先生成指令");return;}
+    const b=new Blob([curCmd],{type:"text/markdown;charset=utf-8"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(b);
+    a.download="精确指令-"+new Date().toISOString().slice(0,10)+".md"; a.click();
+    URL.revokeObjectURL(a.href); notify("已下载");
+  };
+
+  /* ========== 交付前自查计数 ========== */
+  const cks = [...document.querySelectorAll("input[data-ck]")];
+  function drawCk(){
+    const n = cks.filter(c=>c.checked).length;
+    const el = $("ckState");
+    if(el) el.textContent = n + " / " + cks.length + (n===cks.length ? " · 可复制交付" : "");
+  }
+  cks.forEach(c=>{ c.addEventListener("change", drawCk); });
+  drawCk();
+
+  /* ========== 历史 ========== */
+  const KEY="prompt-studio-v2-history";
+  function load(){ try{return JSON.parse(localStorage.getItem(KEY)||"[]");}catch(e){return [];} }
+  function saveHist(){
+    const h=load(), first=F.raw.value.trim().slice(0,36);
+    if(h[0]&&h[0].first===first&&h[0].cmd===curCmd) return;
+    h.unshift({first, cmd:curCmd, time:new Date().toLocaleString("zh-CN",{hour:"2-digit",minute:"2-digit",month:"2-digit",day:"2-digit"})});
+    try{localStorage.setItem(KEY,JSON.stringify(h.slice(0,12)));}catch(e){}
+    drawHist();
+  }
+  function drawHist(){
+    const h=load();
+    F.hist.innerHTML = h.length ? h.map((x,i)=>'<div class="hist-item" data-i="'+i+'"><span>'+
+      x.first.replace(/</g,"&lt;")+'</span><time>'+x.time+'</time></div>').join("")
+      : '<div style="font-size:12px;color:var(--muted)">暂无记录</div>';
+    F.hist.querySelectorAll(".hist-item").forEach(it=>{
+      it.onclick=()=>{ curCmd=load()[Number(it.dataset.i)].cmd; F.out.textContent=curCmd; notify("已载入历史指令"); };
+    });
+  }
+  drawHist();
+})();
+</script>
+</body>
+</html>
